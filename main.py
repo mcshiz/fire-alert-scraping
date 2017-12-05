@@ -3,30 +3,23 @@ import urllib2
 import httplib
 import re
 from bs4 import BeautifulSoup
+
 from dateutil.parser import parse
-from sqlalchemy.orm import mapper, create_session
+
+from sqlalchemy.sql import exists
+from orm_mapper import FireMap
+from fires_orm import Fires
 
 from inciwebLogger import my_logger
 from config_methods import config_section_map
-from db_insert import do_insert
 
-db_user = config_section_map('database')['user']
-db_password = config_section_map('database')['password']
-db_name = config_section_map('database')['database']
 inciweb_rss = config_section_map('inciweb')['rss_url']
 
-
 # open rss feed and parse it
-inciweb = feedparser.parse(inciweb_rss)
+inciweb = feedparser.parse('https://inciweb.nwcg.gov/feeds/rss/incidents/')
 
-
-class InciwebInformation(object):
-    pass
-
-session, table = do_insert()
-# map our custom object to our postgres table via sqlalchemy's mapper function
-mapper(InciwebInformation, table)
-
+# open up a database session (connection pool)
+db = FireMap()
 
 def rss_to_db(key):
     mappings = {
@@ -53,7 +46,6 @@ def rss_to_db(key):
         "Weather Concerns": "weather_concerns",
         "Remarks": "remarks",
         "Incident Description": "description"
-
     }
     if key in mappings:
         return mappings[key]
@@ -61,22 +53,37 @@ def rss_to_db(key):
         if key not in ["summary_detail", "links", "published_parsed", "guidislink", "title_detail", "where", "id"]:
             my_logger('Key Not Found %s' % key)
             return False
-
+# initialize an empty list that will hold all of the objects so we can bulk insert with session.add_all(list)
+information_objects_list = []
 # iterate over each incident
 for idx, incident in enumerate(inciweb.entries):
-    inciweb_details = InciwebInformation()
+    # this is used to map our objects to the Fires class (the table metadata)
+    inciweb_details = Fires()
+    # Gather some elements from the RSS feed before opening the link and
+    # Scraping the web page for the remaining elements
     for key, value in incident.iteritems():
         formatted_key = rss_to_db(key)
         if formatted_key:
             if formatted_key == "inciweb_published_date":
                 value = parse(value).isoformat()
-            inciweb_details.__setattr__(formatted_key,  value.encode("utf-8"))
+            # Sometimes lat and lon are received as "-" or " "
+            # we need to check for those cases by trying to cast to float
+            # because they will cause errors when inserting into a Numeric column
+            if formatted_key == "lat" or formatted_key == "lon":
+                try:
+                    inciweb_details.__setattr__(formatted_key, float(value))
+                except Exception:
+                    value = None
+                    inciweb_details.__setattr__(formatted_key, value)
+            else:
+                inciweb_details.__setattr__(formatted_key,  value.encode("utf-8"))
 
     if hasattr(incident, 'link'):
         link = incident.link
         try:
-            # the ID can be found at the end of the URL
-            inciweb_id = re.search('.*/(\d+)/$', link).group(1)
+            # the ID can be found at the end of the URL i.e https://inciweb.nwcg.gov/incident/5409/
+            # we only want the digits at the end - Using anchors to increase performance
+            inciweb_id = re.search('^.*/(\d+)/$', link).group(1)
             inciweb_details.__setattr__('inciweb_id',  inciweb_id.encode("utf-8"))
         except AttributeError:
             my_logger("Could not parse inciweb id %s" % link)
@@ -133,14 +140,28 @@ for idx, incident in enumerate(inciweb.entries):
                     formatted_key = rss_to_db(trLabel)
                     if formatted_key:
                         inciweb_details.__setattr__(formatted_key, trValue.text.encode("utf-8"))
-
-    # using our currently open session return from do_insert() we are going to iterate over all of the
-    # items in our object and add them to their respective columns in the postgres table
-    # up above there is a function called mapper() (part of sqlalchemy)
-    # which is responsible for matching up the column names and the object names
-
-    session.add(inciweb_details)
-    session.commit()
-    session.close()
+    # check to see if this inciweb_id is already in the DB
+    if db.session.query(exists().where(Fires.inciweb_id == inciweb_details.inciweb_id)).scalar():
+        # UPDATE
+        # because we are dynamically iterating over all of the columns and updating the row with the most
+        # current information, we have to get the ID because that comes from the DB and. (can't insert Null)
+        id = db.session.query(Fires).filter(Fires.inciweb_id == inciweb_details.inciweb_id).first().id
+        inciweb_details.__setattr__('id', id)
+        db.session.query(Fires).filter_by(inciweb_id=inciweb_details.inciweb_id).update(
+            {column: getattr(inciweb_details, column) for column in Fires.__table__.columns.keys()})
+    else:
+        # INSERT
+        information_objects_list.append(inciweb_details)
+    if idx == 5:
+        try:
+            db.session.add_all(information_objects_list)
+        except Exception as e:
+            print(e)
+        try:
+            db.session.commit()
+        except Exception as e:
+            print(e)
+        db.session.close()
+        exit()
 
 

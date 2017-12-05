@@ -1,7 +1,7 @@
 import sqlalchemy
 
 
-def connect(user, password, db, host='localhost', port=5432):
+def connect(user, password, db, host, port):
     # Returns a connection and a metadata object
     url = 'postgresql://{}:{}@{}:{}/{}'
     url = url.format(user, password, host, port, db)
