@@ -15,7 +15,7 @@ def rss_to_db(key):
         "Date of Origin": "start_date",
         "Location": "location_description",
         "Size": "acres",
-        "Percent of Perimeter Contained": "percent_contained",
+        "Percent of Perimeter Contained": "containment",
         "Estimated Containment Date": "estimated_containment_date",
         "Fuels Involved": "fuel_type",
         "Significant Events": "significant_events",

@@ -27,6 +27,9 @@ information_objects_list = []
 for idx, incident in enumerate(inciweb.entries):
     # this is used to map our objects to the Fires class (the table metadata)
     inciweb_details = Fires()
+    # we don't want to collect data on prescribed burns
+    if incident.title.lower().find('wildfire') == -1:
+        continue
     # Gather some elements from the RSS feed before opening the link and
     # Scraping the web page for the remaining elements
     for key, value in incident.iteritems():
@@ -45,7 +48,6 @@ for idx, incident in enumerate(inciweb.entries):
                     inciweb_details.__setattr__(formatted_key, value)
             else:
                 inciweb_details.__setattr__(formatted_key,  value.encode("utf-8"))
-
     if hasattr(incident, 'link'):
         link = incident.link
         try:
@@ -79,13 +81,15 @@ for idx, incident in enumerate(inciweb.entries):
     if content_div is None:
         my_logger("Could not find content div %s" % link)
         continue
-
     for tag in content_div:
         tables = tag.find_all('table')
-        if tables is None:
+        # Sometimes, for some odd reason, I can't find any tables in the content div (even though they are there)
+        # So I just have to search the whole document for tables then iterate over them.
+        if not tables:
+            tables = parsed.find_all('table')
+        elif tables is None:
             my_logger("Could not find content tables %s" % link)
             continue
-
         for trTag in tables:
             rows = trTag.find_all('tr')
             if rows is None:
@@ -107,29 +111,37 @@ for idx, incident in enumerate(inciweb.entries):
                 else:
                     formatted_key = rss_to_db(trLabel)
                     if formatted_key:
-                        inciweb_details.__setattr__(formatted_key, trValue.text.encode("utf-8"))
-    # check to see if this inciweb_id is already in the DB
-    if db.session.query(exists().where(Fires.inciweb_id == inciweb_details.inciweb_id)).scalar():
-        # UPDATE
-        # because we are dynamically iterating over all of the columns and updating the row with the most
-        # current information, we have to get the ID because that comes from the DB and. (can't insert Null)
-        id = db.session.query(Fires).filter(Fires.inciweb_id == inciweb_details.inciweb_id).first().id
-        inciweb_details.__setattr__('id', id)
-        db.session.query(Fires).filter_by(inciweb_id=inciweb_details.inciweb_id).update(
-            {column: getattr(inciweb_details, column) for column in Fires.__table__.columns.keys()})
-    else:
-        # INSERT
-        information_objects_list.append(inciweb_details)
-    if idx == 5:
-        try:
-            db.session.add_all(information_objects_list)
-        except Exception as e:
-            print(e)
-        try:
-            db.session.commit()
-        except Exception as e:
-            print(e)
-        db.session.close()
-        exit()
+                        if formatted_key == 'acres':
+                            try:
+                                # parse int from string
+                                value = re.search(r'\d+(?:,\d+)?', trValue.text.replace(',', '')).group()
+                            except Exception as e:
+                                value = None
+                            inciweb_details.__setattr__(formatted_key, value)
+                        else:
+                            inciweb_details.__setattr__(formatted_key, trValue.text.encode("utf-8"))
+        # check to see if this inciweb_id is already in the DB
+        if db.session.query(exists().where(Fires.inciweb_id == inciweb_details.inciweb_id)).scalar():
+            # UPDATE
+            # because we are dynamically iterating over all of the columns and updating the row with the most
+            # current information, we have to get the ID because that comes from the DB and can't insert Null
+            id = db.session.query(Fires).filter(Fires.inciweb_id == inciweb_details.inciweb_id).first().id
+            inciweb_details.__setattr__('id', id)
+            db.session.query(Fires).filter_by(inciweb_id=inciweb_details.inciweb_id).update(
+                {column: getattr(inciweb_details, column) for column in Fires.__table__.columns.keys()})
+        else:
+            # INSERT
+            information_objects_list.append(inciweb_details)
+
+try:
+    db.session.add_all(information_objects_list)
+except Exception as e:
+    print(e)
+try:
+    db.session.commit()
+except Exception as e:
+    print(e)
+db.session.close()
+exit()
 
 

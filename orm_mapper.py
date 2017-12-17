@@ -1,19 +1,20 @@
 from sqlalchemy import Table, Column, Integer, Text, String, Numeric, DateTime, MetaData
 from base import Session, engine
+import datetime
 
 
 class FireMap:
     def __init__(self):
         self.session = Session()
         self.metadata = MetaData(bind=engine)
-
+        # Don't list default populated columns here
         info_columns = {
             "lat": Numeric,
             "lon": Numeric,
             "name": String,
             "status": String,
             "unit_code": String,
-            "acres": String,
+            "acres": Numeric,
             "inciweb_published_date": DateTime,
             "start_date": String,
             "last_updated": DateTime,
@@ -48,10 +49,14 @@ class FireMap:
             "type": String,
             "planned_actions": Text,
             "inciweb_url": String,
+            "inciweb_id": Integer,
             "description": Text
         }
 
         self.table = Table('fires', self.metadata,
+                           # These are default values that are set every time
                            Column('id', Integer, primary_key=True),
-                           Column('inciweb_id', Integer),
+                           Column('scrape_date', DateTime, default=datetime.datetime.now()),
+                           Column('last_modified', DateTime, default=datetime.datetime.now(), onupdate=datetime.datetime.now()),
+                           # Here loop the the info_columns dict above and insert each one
                            *(Column(detail, col_type) for detail, col_type in info_columns.iteritems()))

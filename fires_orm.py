@@ -1,17 +1,19 @@
 from sqlalchemy import Column, Numeric, String, DateTime, Text, Integer
 from base import Base
+import datetime
 
 
 class Fires(Base):
     __tablename__ = 'fires'
-
     id = Column(Integer, primary_key=True)
+    scrape_date = Column(DateTime)
+    last_modified = Column(DateTime)
     lat = Column(Numeric)
     lon = Column(Numeric)
     name = Column(String)
     status = Column(String)
     unit_code = Column(String)
-    acres = Column(String)
+    acres = Column(Numeric)
     inciweb_published_date = Column(DateTime)
     start_date = Column(String)
     last_updated = Column(DateTime)
@@ -50,7 +52,7 @@ class Fires(Base):
     description = Column(Text)
 
     # by default set everything to null because not all fields will be populated all the time
-    def __init__(self, lat=None, lon=None, name=None, status=None, unit_code=None, acres=None,
+    def __init__(self, scrape_date=datetime.datetime.now().isoformat(), last_modified=datetime.datetime.now().isoformat(), lat=None, lon=None, name=None, status=None, unit_code=None, acres=None,
                  inciweb_published_date=None, start_date=None, last_updated=None, summary=None, remarks=None,
                  location_description=None, containment=None, ros=None, roc=None, alternate_name=None, irwin_id=None,
                  complex_parent=None, radio_frequency=None, country=None, state=None, region=None, county=None,
@@ -60,6 +62,8 @@ class Fires(Base):
                  incident_commander=None, type=None, planned_actions=None, inciweb_id=None, inciweb_url=None,
                  description=None):
 
+        self.scrape_date = scrape_date
+        self.last_modified = last_modified
         self.lat = lat
         self.lon = lon
         self.name = name
@@ -102,4 +106,3 @@ class Fires(Base):
         self.inciweb_id = inciweb_id
         self.inciweb_url = inciweb_url
         self.description = description
-
