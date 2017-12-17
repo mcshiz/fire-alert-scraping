@@ -10,13 +10,15 @@ from sqlalchemy.sql import exists
 from orm_mapper import FireMap
 from fires_orm import Fires
 from rss_name_maps import rss_to_db
-from inciwebLogger import my_logger
+from Logger import my_logger
 from config_methods import config_section_map
 
 inciweb_rss = config_section_map('inciweb')['rss_url']
 
 # open rss feed and parse it
-inciweb = feedparser.parse('https://inciweb.nwcg.gov/feeds/rss/incidents/')
+inciweb = feedparser.parse('%s' % inciweb_rss)
+if inciweb.bozo:
+    my_logger("could not open inciweb feed %s" % inciweb.bozo_exception)
 
 # open up a database session (connection pool)
 db = FireMap()
@@ -27,11 +29,12 @@ information_objects_list = []
 for idx, incident in enumerate(inciweb.entries):
     # this is used to map our objects to the Fires class (the table metadata)
     inciweb_details = Fires()
+    inciweb_details.__setattr__('source', 'inciweb')
     # we don't want to collect data on prescribed burns
     if incident.title.lower().find('wildfire') == -1:
         continue
     # Gather some elements from the RSS feed before opening the link and
-    # Scraping the web page for the remaining elements
+    # Scraping the web page for the remaining elements (columns)
     for key, value in incident.iteritems():
         formatted_key = rss_to_db(key)
         if formatted_key:
@@ -132,16 +135,16 @@ for idx, incident in enumerate(inciweb.entries):
         else:
             # INSERT
             information_objects_list.append(inciweb_details)
-
 try:
     db.session.add_all(information_objects_list)
 except Exception as e:
+    my_logger("Could not add Inciweb rows to DB")
     print(e)
 try:
     db.session.commit()
 except Exception as e:
+    my_logger("Could not commit DB session")
     print(e)
 db.session.close()
-exit()
 
 
