@@ -43,12 +43,20 @@ for idx, incident in enumerate(calfire.entries):
             # Sometimes lat and lon are received as "-" or " "
             # we need to check for those cases by trying to cast to float
             # because they will cause errors when inserting into a Numeric column
-            if formatted_key == "lat" or formatted_key == "lon":
+
+            # fucking calfire has their RSS lat / lon reversed. Emailed them to fix it 12/10
+            if formatted_key == "lat":
                 try:
-                    calfire_details.__setattr__(formatted_key, float(value))
+                    calfire_details.__setattr__('lon', float(value))
                 except Exception:
                     value = None
-                    calfire_details.__setattr__(formatted_key, value)
+                    calfire_details.__setattr__('lon', value)
+            elif formatted_key == "lon":
+                try:
+                    calfire_details.__setattr__('lat', float(value))
+                except Exception:
+                    value = None
+                    calfire_details.__setattr__('lat', value)
             else:
                 calfire_details.__setattr__(formatted_key, value.encode("utf-8"))
 
@@ -126,7 +134,8 @@ for idx, incident in enumerate(calfire.entries):
             id = db.session.query(Fires).filter(Fires.calfire_id == calfire_details.calfire_id).first().id
             calfire_details.__setattr__('id', id)
             db.session.query(Fires).filter_by(calfire_id=calfire_details.calfire_id).update(
-                {column: getattr(calfire_details, column) for column in Fires.__table__.columns.keys()})
+                {column: getattr(calfire_details, column) for column in Fires.__table__.columns.keys()}
+            )
         else:
             # INSERT
             information_objects_list.append(calfire_details)

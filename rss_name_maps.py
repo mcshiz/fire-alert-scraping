@@ -3,8 +3,9 @@ from Logger import my_logger
 
 def rss_to_db(key):
     mappings = {
+        # INCIWEB
         "summary": "summary",
-        "link": "inciweb_url",
+        "link": "source_url",
         "title": "name",
         "geo_lat": "lat",
         "geo_long": "lon",
@@ -38,14 +39,31 @@ def rss_to_db(key):
         "Structures Destroyed": "structures_destroyed",
         "Evacuations": "evacuations",
         "Road Closures": "road_closures",
-        "Conditions": "conditions"
-
+        "Conditions": "conditions",
+        # IRWIN
+        "DailyAcres": "acres",
+        "FireDiscoveryDateTime": "start_date",
+        "IncidentName": "name",
+        "PrimaryFuelModel": "fuel_type",
+        "IrwinID": "irwin_id",
+        "POOState": "state",
+        "POOCounty": "county",
+        "POOCity": "city",
+        "IncidentShortDescription": "location_description",
+        "IncidentTypeCategory": "type",
+        "FireBehaviorGeneral": "ros",
+        "IncidentCommanderName": "incident_commander",
+        "WeatherConcerns": "conditions",
+        "PercentContained": "contained",
+        "EstimatedContainmentDate": "estimated_contained_date",
+        "CreatedOnDateTime": "published_date"
     }
     if key in mappings:
         return mappings[key]
     else:
         # only doing this to see if more columns are being added or I am missing some on
         # some fires so I can add them later.
+        # Will stop logging before production
         if key not in ["summary_detail", "links", "published_parsed", "guidislink", "title_detail", "where", "id",
                        "Long/Lat", "Acres Burned - Containment"]:
             my_logger('Key Not Found %s' % key)
