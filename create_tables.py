@@ -33,6 +33,7 @@ def create_table():
                  Column('alternate_name', String),
                  Column('country', String),
                  Column('state', String),
+                 Column('city', String),
                  Column('region', String),
                  Column('county', String),
                  Column('fire_number', String),

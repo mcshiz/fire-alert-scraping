@@ -27,6 +27,7 @@ class FireMap:
             "alternate_name": String,
             "country": String,
             "state": String,
+            "city": String,
             "region": String,
             "county": String,
             "fire_number": Integer,

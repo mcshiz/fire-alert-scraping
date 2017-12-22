@@ -79,6 +79,7 @@ for feature in features:
     irwin_details.__setattr__('lat', feature['geometry']['y'])
     irwin_details.__setattr__('lon', feature['geometry']['x'])
     irwin_details.__setattr__('geom', func.ST_SetSRID(func.ST_MakePoint(feature['geometry']['x'], feature['geometry']['y']), 4326))
+    irwin_details.__setattr__('scrape_date', func.now())
     attributes = feature['attributes']
     for attr, val in attributes.items():
         formatted_key = rss_to_db(attr)
@@ -97,8 +98,8 @@ for feature in features:
         # current information, we have to get the ID because that comes from the DB and can't insert Null
         id = db.session.query(Fires).filter(Fires.irwin_id == irwin_details.irwin_id).first().id
         irwin_details.__setattr__('id', id)
-        db.session.query(Fires).filter_by(irwin_id=irwin_details.irwin_id).update(
-            {column: getattr(irwin_details, column) for column in Fires.__table__.columns.keys()}
+        db.session.query(Fires).filter(Fires.id == id).update(
+            {column: getattr(irwin_details, column) for column in Fires.__table__.columns.keys()}, synchronize_session='fetch'
         )
     else:
         # INSERT query
