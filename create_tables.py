@@ -57,6 +57,7 @@ def create_table():
                  Column('inciweb_id', Integer),
                  Column('calfire_id', Integer),
                  Column('description', Text),
+                 Column('hashtag', String),
                  Column('geom', Geometry('POINT', 4326), index=True)
                  )
     meta.create_all(con)

@@ -49,6 +49,7 @@ class FireMap:
             "inciweb_id": Integer,
             "calfire_id": Integer,
             "description": Text,
+            "hashtag": String
         }
         self.table = Table('fires', self.metadata,
                            # These are default values that are set every time

@@ -52,4 +52,5 @@ class Fires(Base):
     inciweb_id = Column(Integer)
     calfire_id = Column(Integer)
     description = Column(Text)
+    hashtag = Column(String)
     geom = Column(Geometry)
